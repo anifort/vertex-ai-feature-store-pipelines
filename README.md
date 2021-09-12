@@ -1,1 +1,1 @@
-# vertex-ai-features-store-pipelines
+# vertex-ai-feature-store-pipelines
