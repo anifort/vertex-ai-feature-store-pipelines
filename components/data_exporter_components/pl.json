@@ -1,0 +1,125 @@
+{
+  "pipelineSpec": {
+    "components": {
+      "comp-data-selector": {
+        "executorLabel": "exec-data-selector",
+        "inputDefinitions": {
+          "parameters": {
+            "bq_dataset_id": {
+              "type": "STRING"
+            },
+            "bq_location": {
+              "type": "STRING"
+            },
+            "bq_project_id": {
+              "type": "STRING"
+            },
+            "bq_table_id": {
+              "type": "STRING"
+            },
+            "query": {
+              "type": "STRING"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "table_dataset": {
+              "artifactType": {
+                "schemaTitle": "system.Dataset",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "deploymentSpec": {
+      "executors": {
+        "exec-data-selector": {
+          "container": {
+            "args": [
+              "--executor_input",
+              "{{$}}",
+              "--function_to_execute",
+              "data_selector"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "(python3 -m ensurepip || python3 -m ensurepip --user) && (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet                 --no-warn-script-location 'google-cloud-bigquery==2.24.1' 'kfp==1.8.1' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet                 --no-warn-script-location 'google-cloud-bigquery==2.24.1' 'kfp==1.8.1' --user) && \"$0\" \"$@\"",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp -d)\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\npython3 -m kfp.v2.components.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+              "\nfrom kfp.v2.dsl import *\nfrom typing import *\n\ndef data_selector(\n    query: str,\n    bq_project_id: str,\n    bq_dataset_id: str,\n    bq_table_id: str,\n    bq_location: str,\n    table_dataset: Output[Dataset]\n) -> None:\n\n    from google.cloud import bigquery\n    import logging\n\n    bq_query_data_table=\"{project}.{dataset}.{table}\".format(\n        project=bq_project_id, \n        dataset=bq_dataset_id, \n        table=bq_table_id)\n\n    client = bigquery.Client(project=bq_project_id, location=bq_location,)\n\n    overwrite_table = False\n    job_config = bigquery.QueryJobConfig(\n        write_disposition = bigquery.job.WriteDisposition.WRITE_TRUNCATE if overwrite_table else bigquery.job.WriteDisposition.WRITE_EMPTY,\n        destination = bq_query_data_table)\n\n    try:\n        query_job = client.query(query = query, \n                                 job_config = job_config)\n        query_job.result()\n        #if .total_rows == 0:\n        #    raise Exception(\"Query return no rows\".format(bq_query_data_table))\n\n        if query_job.errors: \n            raise Exception() \n    except Exception as e:\n        logging.error(query_job.errors)\n        raise e\n\n\n\n    table = client.get_table(bq_query_data_table)  # Make an API request.\n    table_dataset.path = \"bq://{}\".format(bq_query_data_table)\n    table_dataset.metadata['table_name'] = bq_query_data_table\n\n    print(vars(table_dataset))\n\n    return None\n\n"
+            ],
+            "image": "python:3.7"
+          }
+        }
+      }
+    },
+    "pipelineInfo": {
+      "name": "bq-fs-export"
+    },
+    "root": {
+      "dag": {
+        "tasks": {
+          "data-selector": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-data-selector"
+            },
+            "inputs": {
+              "parameters": {
+                "bq_dataset_id": {
+                  "componentInputParameter": "bq_dataset_id"
+                },
+                "bq_location": {
+                  "componentInputParameter": "bq_location"
+                },
+                "bq_project_id": {
+                  "componentInputParameter": "bq_project_id"
+                },
+                "bq_table_id": {
+                  "componentInputParameter": "bq_table_id"
+                },
+                "query": {
+                  "componentInputParameter": "query"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "data-selector"
+            }
+          }
+        }
+      },
+      "inputDefinitions": {
+        "parameters": {
+          "bq_dataset_id": {
+            "type": "STRING"
+          },
+          "bq_location": {
+            "type": "STRING"
+          },
+          "bq_project_id": {
+            "type": "STRING"
+          },
+          "bq_table_id": {
+            "type": "STRING"
+          },
+          "query": {
+            "type": "STRING"
+          }
+        }
+      }
+    },
+    "schemaVersion": "2.0.0",
+    "sdkVersion": "kfp-1.8.1"
+  },
+  "runtimeConfig": {
+    "gcsOutputDirectory": "gs://feature-store-mars21/xgb-pl"
+  }
+}

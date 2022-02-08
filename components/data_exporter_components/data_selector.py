@@ -1,6 +1,7 @@
 from kfp import components
 from kfp.v2.dsl import Dataset, Output
 
+
 def data_selector(
     project_id: str,
     dataset_id: str,
@@ -25,7 +26,6 @@ def data_selector(
     Returns:
         None
     """
-    from google.cloud.exceptions import GoogleCloudError
     from google.cloud import bigquery
     import json
     import logging
